@@ -151,14 +151,15 @@ typedef struct disk_stats_t {
 } disk_stats_t;
 
 /* function prototypes */
-static void         daemonize      (void);
-static disk_stats_t *get_diskstats (disk_stats_t *ds, const char *name);
-static void         spindown_disk  (const char *name);
-static void         log_spinup     (const char *logfile, disk_stats_t *ds);
-static char         *disk_name     (char *name);
-static void         phex           (FILE *fp, const void *p, int len,
-                                    const char *fmt, ...);
-static int          is_scsi_disk   (const char *ds);
+static void         daemonize      		(void);
+static disk_stats_t *get_diskstats 		(disk_stats_t *ds, const char *name);
+static void         spindown_disk  		(const char *name);
+static void         log_spinup     		(const char *logfile, disk_stats_t *ds);
+static char         *disk_name     		(char *name);
+static void         phex           		(FILE *fp, const void *p, int len,
+										const char *fmt, ...);
+static int          is_scsi_disk   		(const char *ds);
+void 				sendTelegramMessage	(char* message);
 
 /* global/static variables */
 static int debug =  0;
@@ -360,6 +361,7 @@ int main(int argc, char *argv[])
               log_spinup(logfile, ds);
             }
             ds->spinup = now;
+            sendTelegramMessage("NAS: disco riattivato");
           }
           ds->reads = tmp.reads;
           ds->writes = tmp.writes;
@@ -456,6 +458,8 @@ static void spindown_disk(const char *name)
   int fd;
 
   dprintf("spindown: %s\n", name);
+
+  sendTelegramMessage("NAS: disco spento");
 
   /* fabricate SCSI IO request */
   memset(&io_hdr, 0x00, sizeof(io_hdr));
@@ -637,6 +641,16 @@ static int is_scsi_disk(const char *name)
 
   /* SCSI disk and a whole disk (not partition) */
   return (major(st.st_rdev) == 8) && (minor(st.st_rdev) % 16 == 0);
+}
+
+void sendTelegramMessage(char* message)
+{
+  char *arguments[3] = {"/opt/scripts/sendTelegramMessage", message, NULL};
+
+  if (fork() == 0) {
+	execvp(arguments[0], arguments);
+    _exit(0);
+  }
 }
 
 /* vim: sw=2: ts=2: sts: et
